@@ -680,11 +680,23 @@ public final class XMoreLikeThis {
                 tq.setBoost(boostFactor * myScore / bestScore);
             }
 
-            try {
-                query.add(tq, BooleanClause.Occur.SHOULD);
-            }
-            catch (BooleanQuery.TooManyClauses ignore) {
-                break;
+            boolean retry = true;
+            while (retry) {
+                try {
+                    retry = false;
+                    query.add(tq, BooleanClause.Occur.SHOULD);               
+                }
+                catch (BooleanQuery.TooManyClauses ignore) {
+                    // Double the number of boolean queries allowed.
+                    // The default is in org.apache.lucene.search.BooleanQuery and is 1024.
+                    String defaultQueries = Integer.toString(BooleanQuery.getMaxClauseCount());
+                    int oldQueries = Integer.parseInt(System.getProperty("org.apache.lucene.maxClauseCount", defaultQueries));
+                    int newQueries = oldQueries * 2;
+                    log.error("Too many hits for query: " + oldQueries + ".  Increasing to " + newQueries, e);
+                    System.setProperty("org.apache.lucene.maxClauseCount", Integer.toString(newQueries));
+                    BooleanQuery.setMaxClauseCount(newQueries);
+                    retry = true;
+                }
             }
         }
     }
